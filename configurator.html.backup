@@ -29,9 +29,6 @@
     button.primary{background:linear-gradient(180deg,#2563eb,#1d4ed8)}
     button.ghost{background:#12141a;border:1px solid #222733}
     button:disabled{opacity:.55;cursor:not-allowed}
-    input[type="number"],input[type="text"]{width:100%;padding:10px 12px;background:#0e1117;border:1px solid #222733;border-radius:10px;color:var(--text);font-size:14px;margin-top:6px}
-    input[type="number"]:focus,input[type="text"]:focus{outline:none;border-color:#60a5fa}
-    label{display:block;color:var(--muted);font-size:14px;font-weight:600}
     .grid{display:grid;grid-template-columns:repeat(12,1fr);gap:16px}
     .g-span-8{grid-column:span 8}
     .g-span-4{grid-column:span 4}
@@ -121,11 +118,6 @@
           <input id="deadzonePercent" type="number" min="0" max="50" step="0.5" value="5" />
           <div class="hint">Included in the saved settings. Typical: 3–8%.</div>
         </div>
-        <div class="col" style="max-width:340px">
-          <label for="blePin">Bluetooth PIN</label>
-          <input id="blePin" type="text" pattern="[0-9]{6}" maxlength="6" placeholder="123456" value="123456" />
-          <div class="hint">6-digit PIN for BLE pairing. Requires device restart.</div>
-        </div>
       </div>
     </section>
   </div>
@@ -159,7 +151,6 @@
   var btnFinish = document.getElementById('btnFinish');
   var stepView = document.getElementById('stepView');
   var deadzoneInput = document.getElementById('deadzonePercent');
-  var blePinInput = document.getElementById("blePin");
 
   var axisNames = ['LX','LY','RX','RY'];
   var axisIndices = [0,1,2,3];
@@ -272,9 +263,7 @@
     var dz = parseFloat(deadzoneInput.value);
     if(isNaN(dz)) dz = 0;
     if(dz < 0) dz = 0; if(dz > 50) dz = 50;
-    var pin = blePinInput.value.trim();
-    if(!/^\d{6}$/.test(pin)) pin = "123456";
-    var obj = { deadzone_percent: dz, ble_pin: pin, axes: {} };
+    var obj = { deadzone_percent: dz, axes: {} };
     for(var i=0;i<axisNames.length;i++){
       var name = axisNames[i];
       var a = calData[name];
@@ -289,7 +278,6 @@
     }).then(function(s){
       if(!s) return;
       if(typeof s.deadzone_percent === 'number') deadzoneInput.value = s.deadzone_percent;
-      if(typeof s.ble_pin === "string") blePinInput.value = s.ble_pin;
     }).catch(function(_){ });
   }
 
