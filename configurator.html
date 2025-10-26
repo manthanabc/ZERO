@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ZERO Calibrator</title>
+  <meta name="color-scheme" content="dark" />
+  <style>
+    :root{
+      --bg:#0b0b0c; --panel:#111114; --muted:#6b7280; --text:#e5e7eb; --accent:#60a5fa; --ok:#22c55e; --warn:#f59e0b; --err:#ef4444;
+      --card:#0f1013; --border:#1f2430;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Arial, "Apple Color Emoji","Segoe UI Emoji";
+      background: radial-gradient(80rem 80rem at 30% -10%, #11131a 0%, var(--bg) 40%);
+      color:var(--text);
+      letter-spacing:.2px;
+    }
+    .wrap{max-width:980px;margin-inline:auto;padding:32px}
+    header{display:flex;gap:16px;align-items:center;justify-content:space-between;margin-bottom:18px}
+    header h1{font-size:clamp(18px,2.6vw,26px);font-weight:650;margin:0}
+    header .sub{color:var(--muted);font-size:.95rem}
+    .card{background:linear-gradient(180deg,var(--card),#0d0e11); border:1px solid var(--border); border-radius:18px; padding:24px}
+    .row{display:flex; gap:20px; flex-wrap:wrap}
+    .col{flex:1 1 260px}
+    button{appearance:none;border:none;border-radius:12px; padding:10px 14px; color:#fff; background:#1f2937; cursor:pointer; font-weight:600}
+    button.primary{background:linear-gradient(180deg,#2563eb,#1d4ed8)}
+    button.ghost{background:#12141a;border:1px solid #222733}
+    button:disabled{opacity:.55;cursor:not-allowed}
+    .grid{display:grid;grid-template-columns:repeat(12,1fr);gap:16px}
+    .g-span-8{grid-column:span 8}
+    .g-span-4{grid-column:span 4}
+    @media(max-width:860px){.g-span-8,.g-span-4{grid-column:1/-1}}
+
+    .bar{height:12px;background:#0b0d12;border:1px solid #1f2430;border-radius:999px;overflow:hidden}
+    .bar > i{display:block;height:100%;width:0%;background:linear-gradient(90deg,#22d3ee,#60a5fa)}
+    .muted{color:var(--muted)}
+    .mono{font:600 12px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace}
+    .big{font-size:clamp(22px,3.2vw,28px); font-weight:700}
+    .small{font-size:.85rem}
+    .hr{height:1px;background:linear-gradient(90deg,transparent,#1f2430,transparent);margin:14px 0}
+
+    /* Stick SVG visuals */
+    .stickWrap{display:flex; gap:16px; flex-wrap:wrap; margin-bottom:12px}
+    .stickCard{flex:1 1 260px}
+    svg.stick{width:100%; max-width:260px; height:auto; aspect-ratio:1/1; display:block}
+    .stickMeta{display:flex; justify-content:space-between; align-items:center; margin-top:6px}
+    .hint{font-size:12px;color:#9aa5b1}
+
+    /* Step visibility + toast */
+    .step{display:none}
+    .step.active{display:block}
+    .toast{position:fixed;right:20px;bottom:20px;background:#0e1117;border:1px solid #273042;border-radius:10px;padding:10px 14px;color:#c9d2e0;box-shadow:0 10px 30px rgba(0,0,0,.5);opacity:0;transform:translateY(6px);transition:.25s}
+    .toast.show{opacity:1;transform:translateY(0)}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div>
+        <h1>ZERO Calibrator</h1>
+        <div class="sub">Record <span class="mono">min/max/center</span> per axis. Uses ESP32 REST API.</div>
+      </div>
+      <div class="row" style="gap:8px">
+        <button class="primary" id="btnStart">Start calibration</button>
+        <button class="ghost" id="btnSave" disabled>Save</button>
+      </div>
+    </header>
+
+    <section class="card" aria-label="calibration">
+      <!-- Live stick visuals -->
+      <div class="stickWrap">
+        <div class="stickCard card">
+          <div class="small muted">Left Stick</div>
+          <svg class="stick" viewBox="0 0 120 120" id="stick-L" aria-label="Left stick visual">
+            <rect x="0" y="0" width="120" height="120" rx="16" fill="#0b0d12" stroke="#1f2430"/>
+            <circle cx="60" cy="60" r="50" fill="#0e1117" stroke="#222733"/>
+            <line x1="10" y1="60" x2="110" y2="60" stroke="#222733" stroke-width="1"/>
+            <line x1="60" y1="10" x2="60" y2="110" stroke="#222733" stroke-width="1"/>
+            <circle id="dot-L" cx="60" cy="60" r="4" fill="#60a5fa"/>
+          </svg>
+          <div class="stickMeta hint"><span class="mono" id="stickLText">LX: 0.000, LY: 0.000</span></div>
+        </div>
+        <div class="stickCard card">
+          <div class="small muted">Right Stick</div>
+          <svg class="stick" viewBox="0 0 120 120" id="stick-R" aria-label="Right stick visual">
+            <rect x="0" y="0" width="120" height="120" rx="16" fill="#0b0d12" stroke="#1f2430"/>
+            <circle cx="60" cy="60" r="50" fill="#0e1117" stroke="#222733"/>
+            <line x1="10" y1="60" x2="110" y2="60" stroke="#222733" stroke-width="1"/>
+            <line x1="60" y1="10" x2="60" y2="110" stroke="#222733" stroke-width="1"/>
+            <circle id="dot-R" cx="60" cy="60" r="4" fill="#60a5fa"/>
+          </svg>
+          <div class="stickMeta hint"><span class="mono" id="stickRText">RX: 0.000, RY: 0.000</span></div>
+        </div>
+      </div>
+
+      <!-- Axis-by-axis guidance -->
+      <div id="stepView"></div>
+
+      <div class="row" style="justify-content:space-between; margin-top:16px">
+        <div class="row" style="gap:10px">
+          <button id="btnPrev" class="ghost" disabled>◀ Prev</button>
+          <button id="btnSkip" class="ghost" disabled>Skip</button>
+          <button id="btnNext" class="primary" disabled>Next ▶</button>
+        </div>
+        <div class="row" style="gap:10px">
+          <button id="btnResetAxis" class="ghost" disabled>Reset axis</button>
+          <button id="btnFinish" class="primary" disabled>Finish</button>
+        </div>
+      </div>
+
+      <div class="hr"></div>
+      <div class="row">
+        <div class="col" style="max-width:340px">
+          <label for="deadzonePercent">Deadzone (%)</label>
+          <input id="deadzonePercent" type="number" min="0" max="50" step="0.5" value="5" />
+          <div class="hint">Included in the saved settings. Typical: 3–8%.</div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <script>
+  // ----------------------------
+  // Minimal toast
+  // ----------------------------
+  var toastEl = document.getElementById('toast');
+  function toast(msg){
+    toastEl.textContent = msg; toastEl.classList.add('show');
+    setTimeout(function(){ toastEl.classList.remove('show'); }, 1600);
+  }
+
+  // ----------------------------
+  // Polling (no Gamepad API)
+  // ----------------------------
+  var pollId = null; // setInterval id
+
+  // ----------------------------
+  // Calibration state
+  // ----------------------------
+  var btnStart = document.getElementById('btnStart');
+  var btnSave = document.getElementById('btnSave');
+  var btnPrev = document.getElementById('btnPrev');
+  var btnSkip = document.getElementById('btnSkip');
+  var btnNext = document.getElementById('btnNext');
+  var btnResetAxis = document.getElementById('btnResetAxis');
+  var btnFinish = document.getElementById('btnFinish');
+  var stepView = document.getElementById('stepView');
+  var deadzoneInput = document.getElementById('deadzonePercent');
+
+  var axisNames = ['LX','LY','RX','RY'];
+  var axisIndices = [0,1,2,3];
+
+  var current = 0;
+  var running = false;
+  var movedCurrent = false; // true after enough movement
+  var calData = {}; // name -> { index, min, max, center }
+  var lastVals = {}; // name -> last raw value for stick visuals
+
+  function buildSteps(){
+    stepView.innerHTML = '';
+    for(var i=0;i<axisNames.length;i++){
+      var name = axisNames[i];
+      var root = document.createElement('div');
+      root.className = 'step' + (i===0? ' active' : '');
+      root.id = 'step-'+i;
+      root.innerHTML = ''+
+        '<div class="grid">'+
+          '<div class="g-span-8">'+
+            '<div class="big">'+name+'</div>'+
+            '<p class="muted">Move the control for <span class="mono">'+name+'</span> slowly through the full range. We record the extremes.<br><span class="hint">Axis index: <span class="mono">'+axisIndices[i]+'</span> (browser values usually -1.00…+1.00)</span></p>'+
+            '<div class="bar" aria-label="live value"><i id="bar-'+i+'"></i></div>'+
+            '<div style="height:8px"></div>'+
+            '<div class="row">'+
+              '<div class="col card"><div class="small muted">LIVE</div><div class="big" id="live-'+i+'">0.000</div></div>'+
+              '<div class="col card"><div class="small muted">MIN</div><div class="big" id="min-'+i+'">—</div></div>'+
+              '<div class="col card"><div class="small muted">MAX</div><div class="big" id="max-'+i+'">—</div></div>'+
+              '<div class="col card"><div class="small muted">CENTER</div><div class="big" id="ctr-'+i+'">—</div></div>'+
+            '</div>'+
+          '</div>'+
+          '<div class="g-span-4">'+
+            '<div class="hint">If the bar moves opposite to expectation, invert later in firmware.</div>'+
+          '</div>'+
+        '</div>';
+      stepView.appendChild(root);
+      calData[name] = {...calData[name], index: axisIndices[i], min: Infinity, max: -Infinity};
+    }
+  }
+
+  function showStep(i){
+    var kids = stepView.children;
+    for(var k=0;k<kids.length;k++){ kids[k].classList.toggle('active', k===i); }
+    var name = axisNames[i];
+    var c = calData[name];
+    // movement seen if min/max are no longer +/-Infinity
+    movedCurrent = (isFinite(c.min) && isFinite(c.max) && c.min !== Infinity && c.max !== -Infinity);
+    btnPrev.disabled = (i===0) || !running;
+    btnSkip.disabled = !running;
+    btnNext.disabled = (i===axisNames.length-1) || !running || !movedCurrent;
+    btnResetAxis.disabled = !running;
+    btnFinish.disabled = !running || !(i===axisNames.length-1 && movedCurrent);
+  }
+
+  function updateActiveAxisFrom(values){
+    if(!running) return;
+    var i = current; var name = axisNames[i];
+    var raw = (name in values) ? values[name] : 0;
+    var c = calData[name];
+    if(raw < c.min) c.min = raw;
+    if(raw > c.max) c.max = raw;
+    if(Math.abs(raw) < 0.10){ c.center = c.center*0.95 + raw*0.05; }
+    var liveEl = document.getElementById('live-'+i);
+    var minEl = document.getElementById('min-'+i);
+    var maxEl = document.getElementById('max-'+i);
+    var ctrEl = document.getElementById('ctr-'+i);
+    var barEl = document.getElementById('bar-'+i);
+    if(liveEl){ liveEl.textContent = raw.toFixed(3); }
+    if(minEl){ minEl.textContent = (isFinite(c.min)? c.min.toFixed(3) : '—'); }
+    if(maxEl){ maxEl.textContent = (isFinite(c.max)? c.max.toFixed(3) : '—'); }
+    if(ctrEl){ ctrEl.textContent = c.center; }
+    if(barEl){ barEl.style.width = (((raw+1)/2*100).toFixed(1))+'%'; }
+    if(!movedCurrent){ var span = Math.abs(c.max - c.min); if(span > 0.08 || Math.abs(raw) > 0.15){ movedCurrent = true; btnNext.disabled = (current===axisNames.length-1); btnFinish.disabled = !(current===axisNames.length-1); } }
+  }
+
+  function updateSticks(){
+
+    var lx = (lastVals.LX===undefined)?0:lastVals.LX;
+    var ly = (lastVals.LY===undefined)?0:lastVals.LY;
+    var rx = (lastVals.RX===undefined)?0:lastVals.RX;
+    var ry = (lastVals.RY===undefined)?0:lastVals.RY;
+
+	console.log(lx)
+	
+	lx = ((lx/4095)*2) -1;
+	ly = ((ly/4095)*2) -1;
+	rx = ((rx/4095)*2) -1;
+	ry = ((ry/4095)*2) -1;
+
+    setStickDot('L', lx, ly); setStickDot('R', rx, ry);
+    var lt = document.getElementById('stickLText'); if(lt) lt.textContent = 'LX: '+lx.toFixed(3)+', LY: '+ly.toFixed(3);
+    var rt = document.getElementById('stickRText'); if(rt) rt.textContent = 'RX: '+rx.toFixed(3)+', RY: '+ry.toFixed(3);
+  }
+
+  function setStickDot(which, x, y){
+    var id = (which==='L'?'dot-L':'dot-R');
+    var dot = document.getElementById(id);
+    if(!dot) return;
+    var cx = 60, cy = 60, r = 50;
+    var px = cx + (x * r);
+    var py = cy - (y * r);
+    dot.setAttribute('cx', px.toFixed(2));
+    dot.setAttribute('cy', py.toFixed(2));
+  }
+
+  function startPolling(){ if(pollId) clearInterval(pollId); pollId = setInterval(fetchRaw, 100); }
+  function stopPolling(){ if(pollId){ clearInterval(pollId); pollId = null; } }
+
+  function exportCalibration(){
+    var dz = parseFloat(deadzoneInput.value);
+    if(isNaN(dz)) dz = 0;
+    if(dz < 0) dz = 0; if(dz > 50) dz = 50;
+    var obj = { deadzone_percent: dz, axes: {} };
+    for(var i=0;i<axisNames.length;i++){
+      var name = axisNames[i];
+      var a = calData[name];
+      obj.axes[name] = { index:a.index, min:+a.min.toFixed(6), max:+a.max.toFixed(6), center:+a.center.toFixed(6) };
+    }
+    return JSON.stringify(obj, null, 2);
+  }
+
+  function loadSettings(){
+    return fetch('http://192.168.4.1/settings', {cache:'no-store'}).then(function(r){
+      if(!r.ok) return; return r.json();
+    }).then(function(s){
+      if(!s) return;
+      if(typeof s.deadzone_percent === 'number') deadzoneInput.value = s.deadzone_percent;
+    }).catch(function(_){ });
+  }
+
+  function fetchRaw(){
+    return fetch('http://192.168.4.1/raw', {cache:'no-store'})
+      .then(function(r){ if(!r.ok) return; return r.json(); })
+      .then(function(data){
+        if(!data) return;
+        var keys = ['LX','LY','RX','RY'];
+        for(var i=0;i<keys.length;i++){ var k = keys[i]; if(data.hasOwnProperty(k)) lastVals[k] = data[k]; }
+        updateSticks();
+        updateActiveAxisFrom(lastVals);
+      }).catch(function(_){ });
+  }
+
+  // ----------------------------
+  // UI events
+  // ----------------------------
+  btnStart.addEventListener('click', function(){
+    buildSteps();
+    current = 0; running = true; movedCurrent = false;
+    showStep(current);
+    btnStart.disabled = true;
+    btnSkip.disabled = false;
+    btnNext.disabled = true; btnFinish.disabled = true; btnResetAxis.disabled = false; btnSave.disabled = false;
+    loadSettings().then(function(){ startPolling(); toast('Calibration started'); });
+  });
+
+  btnPrev.addEventListener('click', function(){ if(current>0){ current--; movedCurrent = false; showStep(current); } });
+  btnNext.addEventListener('click', function(){ if(current<axisNames.length-1){ current++; movedCurrent = false; showStep(current); } });
+  btnSkip.addEventListener('click', function(){ if(!running) return; if(current<axisNames.length-1){ current++; movedCurrent = false; showStep(current); } else { btnFinish.click(); } });
+ btnResetAxis.addEventListener('click', function(){ var i=current; var name = axisNames[i]; 
+
+// calData[name] = { index: axisIndices[i], min: Infinity, max: -Infinity, center: 0 }; 
+calData[name]['center']=lastVals[name];
+// debugger;
+// movedCurrent=false; 
+showStep(current); 	
+toast('Axis reset'); 
+});
+
+  btnFinish.addEventListener('click', function(){ running=false; btnPrev.disabled=true; btnNext.disabled=true; btnResetAxis.disabled=true; btnFinish.disabled=true; btnStart.disabled=false; stopPolling(); toast('Calibration finished'); });
+
+  btnSave.addEventListener('click', function(){
+    var json = exportCalibration();
+    fetch('http://192.168.4.1/set', { method:'POST', headers:{'Content-Type':'application/json'}, body: json })
+      .then(function(r){ if(r && r.ok) toast('Saved to device'); else toast('Save failed'); })
+      .catch(function(){ toast('Save failed'); });
+  });
+  </script>
+</body>
+</html>
