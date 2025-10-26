@@ -1,0 +1,44 @@
+# Arduino IDE
+*.ino.bin
+*.ino.elf
+*.ino.map
+*.ino.partitions.bin
+*.ino.bootloader.bin
+
+# PlatformIO
+.pio/
+.pioenvs/
+.piolibdeps/
+.vscode/
+.clang_complete
+.gcc-flags.json
+
+# Build directories
+build/
+out/
+
+# ESP32 specific
+*.bin
+*.map
+*.elf
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Dependency directories
+node_modules/
+lib/
+
+# Logs
+*.log
+
+# OS files
+Thumbs.db
+.DS_Store
+.Spotlight-V100
+.Trashes
