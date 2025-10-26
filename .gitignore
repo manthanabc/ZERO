@@ -1,0 +1,37 @@
+# Arduino/ESP32 build artifacts
+*.o
+*.a
+*.elf
+*.bin
+*.map
+*.hex
+*.eep
+*.lss
+*.sym
+
+# Build directories
+build/
+.build/
+*.build/
+
+# Arduino/PlatformIO
+.pio/
+.vscode/
+.pioenvs
+.piolibdeps
+.clang_complete
+.gcc-flags.json
+lib/readme.txt
+
+# IDE specific
+.DS_Store
+*.swp
+*.swo
+*~
+.idea/
+*.iml
+
+# Temporary files
+*.tmp
+*.bak
+*.log
