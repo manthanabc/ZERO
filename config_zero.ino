@@ -74,6 +74,33 @@ int16_t joy1x = 0, joy1y = 0, joy2x = 0, joy2y = 0;
 XboxGamepadDevice *gamepad;
 BleCompositeHID compositeHID("ESP32 Controller", "Mystfit", 100);
 
+// ================== BLE Security Callbacks ==================
+class BLESecurityCallbacks : public NimBLESecurityCallbacks {
+  uint32_t onPassKeyRequest() {
+    Serial.println("BLE: PassKey Request");
+    extern Settings settings;
+    return atol(settings.ble_pin);
+  }
+
+  void onPassKeyNotify(uint32_t pass_key) {
+    Serial.printf("BLE: PassKey Notify: %d\n", pass_key);
+  }
+
+  bool onConfirmPIN(uint32_t pass_key) {
+    Serial.printf("BLE: Confirm PIN: %d\n", pass_key);
+    return true;
+  }
+
+  bool onSecurityRequest() {
+    Serial.println("BLE: Security Request");
+    return true;
+  }
+
+  void onAuthenticationComplete(ble_gap_conn_desc* desc) {
+    Serial.println("BLE: Authentication Complete");
+  }
+};
+
 // ================== Vibration Handler ==================
 void OnVibrateEvent(XboxGamepadOutputReportData data) {
   if (data.weakMotorMagnitude > 0 || data.strongMotorMagnitude > 0) {
@@ -96,6 +123,7 @@ struct CalAxis {
 struct Settings {
   float   deadzone_percent; // 0..50
   CalAxis LX, LY, RX, RY;
+  char    ble_pin[7];       // 6-digit PIN + null terminator
 };
 
 Preferences prefs;
@@ -108,6 +136,7 @@ void loadDefaults() {
   settings.LY = {   0, 1927, 3180, 1 };
   settings.RX = { 302, 1975, 3900, 2 };
   settings.RY = { 170, 1940, 3538, 3 };
+  strncpy(settings.ble_pin, "123456", sizeof(settings.ble_pin));
 }
 
 static void putAxisNVS(const char* prefix, struct CalAxis& a) {
@@ -132,6 +161,7 @@ void saveSettings() {
   putAxisNVS("LY_", settings.LY);
   putAxisNVS("RX_", settings.RX);
   putAxisNVS("RY_", settings.RY);
+  prefs.putString("ble_pin", settings.ble_pin);
   prefs.end();
 }
 void loadSettings() {
@@ -141,6 +171,9 @@ void loadSettings() {
   getAxisNVS("LY_", settings.LY, {  0,1927,3180,1});
   getAxisNVS("RX_", settings.RX, {302,1975,3900,2});
   getAxisNVS("RY_", settings.RY, {170,1940,3538,3});
+  String pin = prefs.getString("ble_pin", "123456");
+  strncpy(settings.ble_pin, pin.c_str(), sizeof(settings.ble_pin) - 1);
+  settings.ble_pin[sizeof(settings.ble_pin) - 1] = '\0';
   prefs.end();
 }
 
@@ -196,6 +229,7 @@ void handleval(AsyncWebServerRequest *req){
 void handleGetSettings(AsyncWebServerRequest *req){
   StaticJsonDocument<512> doc;
   doc["deadzone_percent"] = settings.deadzone_percent;
+  doc["ble_pin"] = settings.ble_pin;
   JsonObject axes = doc.createNestedObject("axes");
   JsonObject o;
 
@@ -220,6 +254,12 @@ void handlePostSet(AsyncWebServerRequest *req, uint8_t *data, size_t len, size_t
   if(err){ req->send(400, "application/json", "{\"ok\":false,\"err\":\"bad_json\"}"); return; }
 
   if (doc.containsKey("deadzone_percent")) settings.deadzone_percent = doc["deadzone_percent"].as<float>();
+  
+  if (doc.containsKey("ble_pin")) {
+    String pin = doc["ble_pin"].as<String>();
+    strncpy(settings.ble_pin, pin.c_str(), sizeof(settings.ble_pin) - 1);
+    settings.ble_pin[sizeof(settings.ble_pin) - 1] = '\0';
+  }
 
   JsonObject axes = doc["axes"];
   if (!axes.isNull()) {
@@ -373,6 +413,12 @@ void setup() {
   FunctionSlot<XboxGamepadOutputReportData> vibrationSlot(OnVibrateEvent);
   gamepad->onVibrate.attach(vibrationSlot);
   compositeHID.addDevice(gamepad);
+
+  // Configure BLE security with PIN
+  NimBLEDevice::setSecurityAuth(true, true, true);
+  NimBLEDevice::setSecurityIOCap(BLE_HS_IO_DISPLAY_ONLY);
+  NimBLEDevice::setSecurityCallbacks(new BLESecurityCallbacks());
+  Serial.printf("BLE PIN configured: %s\n", settings.ble_pin);
 
   Serial.println("Starting composite HID device...");
   compositeHID.begin(hostConfig);
