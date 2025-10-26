@@ -77,8 +77,8 @@ BleCompositeHID compositeHID("ESP32 Controller", "Mystfit", 100);
 // ================== Vibration Handler ==================
 void OnVibrateEvent(XboxGamepadOutputReportData data) {
   if (data.weakMotorMagnitude > 0 || data.strongMotorMagnitude > 0) {
-    analogWrite(RUMBLES, data.weakMotorMagnitude);
-    analogWrite(RUMBLE,  data.strongMotorMagnitude);
+    analogWrite(RUMBLES, data.strongMotorMagnitude);
+    analogWrite(RUMBLE,  data.weakMotorMagnitude);
   } else {
     analogWrite(RUMBLE,  0);
     analogWrite(RUMBLES, 0);
@@ -355,6 +355,7 @@ void setup() {
 
   pinMode(RUMBLE, OUTPUT);
   pinMode(RUMBLES, OUTPUT);
+  digitalWrite(RUMBLE, LOW);
   digitalWrite(RUMBLES, LOW);
 
   pinMode(dUp, INPUT_PULLUP);
