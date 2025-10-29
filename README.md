@@ -2,7 +2,7 @@
 
 ZERO is a firmware (leveraging BLE COMPOSITE HID library) that allows ESP32 series boards to act as Xbox Series X/S controllers over Bluetooth Low Energy (BLE). It includes a web-based UI for quick calibration of joysticks and deadzone setup.
 
-![ZERO Calibrator UI](https://github.com/manthanabc/ZERO/blob/main/images/ui.png?raw=true)
+![WhatsApp Image 2025-10-27 at 2 59 27 PM](https://github.com/user-attachments/assets/d77eba4d-9bb3-48e7-a31a-25c13ccc39ae)
 ![Untitled2](https://github.com/user-attachments/assets/793ff71a-b22f-430c-a7cf-c7e1cb5005f3)
 ![Untitled3](https://github.com/user-attachments/assets/cdefac29-0d08-4970-85a6-50124256d3e6)
 
